@@ -1,22 +1,20 @@
 #include "nrf24l01.h"
 
-
 NRF24L01_HandleTypeDef hnrf24l01;
-
-
 
 /*************************************
  * private func ：spi interface optor
  *************************************/
+int8_t gobal;
 static uint8_t SPI_ReadWriteByte(NRF24L01_HandleTypeDef *hnrf,uint8_t byte){
-	uint8_t read,send=byte;
+	uint8_t read=0,send=byte;
 	if(HAL_SPI_TransmitReceive(hnrf->hspix,&send,&read,1,0xff)!=HAL_OK)
 		read=0;
 	return read;
 }
 
 static uint8_t nrf24l01_write_reg(NRF24L01_HandleTypeDef *hnrf,uint8_t nrf24l01_reg,uint8_t value){
-	uint8_t status;
+	uint8_t status=0;
 	NRF_SPI_START_SIGNAL(hnrf);
 
 	status =SPI_ReadWriteByte(hnrf,nrf24l01_reg);
@@ -27,7 +25,7 @@ static uint8_t nrf24l01_write_reg(NRF24L01_HandleTypeDef *hnrf,uint8_t nrf24l01_
 }
 
 static uint8_t nrf24l01_read_reg(NRF24L01_HandleTypeDef *hnrf,uint8_t nrf24l01_reg,uint8_t *value){
-	uint8_t	status;
+	uint8_t	status=0;
 	NRF_SPI_START_SIGNAL(hnrf);
 
 	status = SPI_ReadWriteByte(hnrf,nrf24l01_reg);
@@ -39,7 +37,7 @@ static uint8_t nrf24l01_read_reg(NRF24L01_HandleTypeDef *hnrf,uint8_t nrf24l01_r
 
 
 static uint8_t nrf24l01_read_buf(NRF24L01_HandleTypeDef *hnrf,uint8_t nrf24l01_reg,uint8_t *pbuf,uint8_t size){
-	uint8_t status;
+	uint8_t status=0;
 	NRF_SPI_START_SIGNAL(hnrf);
 
   status=SPI_ReadWriteByte(hnrf,nrf24l01_reg);
@@ -52,7 +50,7 @@ static uint8_t nrf24l01_read_buf(NRF24L01_HandleTypeDef *hnrf,uint8_t nrf24l01_r
 
 
 static uint8_t nrf24l01_write_buf(NRF24L01_HandleTypeDef *hnrf,uint8_t nrf24l01_reg,uint8_t *pbuf,uint8_t size){
-	uint8_t status;
+	uint8_t status=0;
 	NRF_SPI_START_SIGNAL(hnrf);
 
   status=SPI_ReadWriteByte(hnrf,nrf24l01_reg);
@@ -104,6 +102,9 @@ void NRF24L01_Get_Instance(NRF24L01_HandleTypeDef *hnrf){
   nrf24l01_read_reg(hnrf,cmd_READ_REG | reg_FIFO_STATUS,&(hnrf->Instance.FIFO_STATUS));
   nrf24l01_read_reg(hnrf,cmd_READ_REG | reg_DYNPD,&(hnrf->Instance.DYNPD));
   nrf24l01_read_reg(hnrf,cmd_READ_REG | reg_FEATURE,&(hnrf->Instance.FEATURE));
+  
+//  nrf24l01_write_reg(hnrf,cmd_FLUSH_TX,hnrf->State);
+//  nrf24l01_write_reg(hnrf,cmd_FLUSH_RX,hnrf->State);
 }
 /*************************************
  * public func ：user function 
@@ -157,7 +158,7 @@ void NRF24L01_Switch2_Tx(NRF24L01_HandleTypeDef *hnrf){
 HAL_StatusTypeDef NRF24L01_Transmit(NRF24L01_HandleTypeDef *hnrf,uint8_t *tbuf,uint32_t timeout){
 	if(hnrf->State == NRF_STATE_READY)
   {
-    uint8_t status;
+    uint8_t status=0;
     uint32_t tickstart = HAL_GetTick();
     hnrf->State =NRF_STATE_BUSY_TX;
     nrf24l01_write_buf(hnrf,cmd_WRITE_TX_PAYLOAD,tbuf,hnrf->Init.TxPayLoadWidth);
@@ -174,8 +175,8 @@ HAL_StatusTypeDef NRF24L01_Transmit(NRF24L01_HandleTypeDef *hnrf,uint8_t *tbuf,u
       }
     }while( ( !(status & reg_STATUS__TX_DS) )&& ( !(status & reg_STATUS__MAX_RT) ));
     NRF_ENTER_STANDBY(hnrf);
-    /* --- process status flag --- */
     
+    /* --- process status flag --- */
     nrf24l01_read_reg(hnrf ,cmd_READ_REG  | reg_STATUS,&status);  
     nrf24l01_write_reg(hnrf,cmd_WRITE_REG | reg_STATUS, status);  /* -- clear iqrbit -- */
     
@@ -186,9 +187,20 @@ HAL_StatusTypeDef NRF24L01_Transmit(NRF24L01_HandleTypeDef *hnrf,uint8_t *tbuf,u
       hnrf->State = NRF_STATE_READY;
       return HAL_ERROR;
     }
-    else{
+    
+    /* --- transmit succeed --- */
+    if(status & reg_STATUS__TX_DS )
+    {
+      /* --- receive ACK payload --- */
+      if(status & reg_STATUS__RX_DR){
+        if(hnrf->AckBuffsize !=0 && hnrf->pAckBuffPtr!=NULL )
+        nrf24l01_read_buf(hnrf,cmd_READ_RX_PAYLOAD,hnrf->pAckBuffPtr,hnrf->AckBuffsize);
+        nrf24l01_write_reg(hnrf,cmd_FLUSH_RX,hnrf->State);/* --- maybe --- */     
+        NRF_ReceiveACKCallback(hnrf);
+      }
       /* -- ↓ get auto ack :do something -- */
       HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_13);
+      ++(hnrf->stamp);
       /* -- ↑ get auto ack :do something -- */
     }
     hnrf->State = NRF_STATE_READY;
@@ -202,11 +214,10 @@ HAL_StatusTypeDef NRF24L01_Transmit(NRF24L01_HandleTypeDef *hnrf,uint8_t *tbuf,u
 HAL_StatusTypeDef NRF24L01_Recieve(NRF24L01_HandleTypeDef *hnrf,uint8_t *rbuf,uint32_t timeout){
 	if(hnrf->State == NRF_STATE_READY)
   {
-    uint8_t status;
-    uint32_t tickstart;
-    hnrf->State =NRF_STATE_BUSY_RX;
-    tickstart = HAL_GetTick();
-    
+    uint8_t status=0;//必须初始化，好几次因为没初始化状态错了找半天，导致出现0x4e这种不可能出现的状态，不是全局static不会自动初始化为0的。
+    uint32_t tickstart = HAL_GetTick();
+  
+    hnrf->State =NRF_STATE_BUSY_RX; 
 
     NRF_EXIT_STANDBY(hnrf);/* --- start RX mode --- */
     do{
@@ -222,7 +233,7 @@ HAL_StatusTypeDef NRF24L01_Recieve(NRF24L01_HandleTypeDef *hnrf,uint8_t *rbuf,ui
     
     nrf24l01_write_reg(hnrf,cmd_WRITE_REG | reg_STATUS, status);
     
-    uint8_t pipe = ((status & reg_STATUS__RX_P_NO_Msk) >> reg_STATUS__RX_P_NO_Pos )&0x5;
+    uint8_t pipe = ((status & reg_STATUS__RX_P_NO_Msk) >> reg_STATUS__RX_P_NO_Pos )&0x7;
     if(pipe < 0x06 )
       nrf24l01_read_buf(hnrf,cmd_READ_RX_PAYLOAD,rbuf,hnrf->Init.RxPipePayLoadWidth[pipe]);
     
@@ -252,46 +263,11 @@ HAL_StatusTypeDef NRF24L01_Recieve(NRF24L01_HandleTypeDef *hnrf,uint8_t *rbuf,ui
 /*************************************
  * public func ：irq function
  *************************************/
-/* ------- weak ISR function -------- */
-__weak void NRF_RxCpltCallback(NRF24L01_HandleTypeDef *hnrf,uint8_t pipex){return;}
-/* ------- intermediate function -------- */
-void Recieve_IT(NRF24L01_HandleTypeDef *hnrf,uint8_t pipex){
-  nrf24l01_read_buf(hnrf,cmd_READ_RX_PAYLOAD,hnrf->pRxBuffPtr,hnrf->Init.RxPipePayLoadWidth[pipex]);
-  NRF_RxCpltCallback(hnrf,pipex);
-  hnrf->State = NRF_STATE_READY;
-}
-
-
-
-void NRF_IRQHandler(NRF24L01_HandleTypeDef *hnrf){
-  uint8_t status;
-  NRF_ENTER_STANDBY(hnrf);
-  /* --- read status and clear bit --- */
-  nrf24l01_read_reg(hnrf,cmd_READ_REG  | reg_STATUS,&status);
-  nrf24l01_write_reg(hnrf,cmd_WRITE_REG | reg_STATUS, status);
-  
-  /* --- if RX_DR IRQ occur  --- */
-  if( status & reg_STATUS__RX_DR )
-  { 
-    Recieve_IT(hnrf,((status & reg_STATUS__RX_P_NO_Msk) >> reg_STATUS__RX_P_NO_Pos ) & 0x7);
-    return ;
-  }
-  /* --- if auto ACK with payload occur  --- */
-  if(status  & reg_STATUS__TX_DS )
-  {
-    return ;
-  }
- 
-  /* --- ready to get next package  --- */
-   //be a to do list
-}
-
-
 /* ------- for user to call -------- */
 HAL_StatusTypeDef NRF24L01_Recieve_IT(NRF24L01_HandleTypeDef *hnrf,uint8_t *tbuf){
 	if(hnrf->State == NRF_STATE_READY)
   {
-    hnrf->State = NRF_STATE_BUSY_RX ;
+    hnrf->State = NRF_STATE_BUSY_RX_IRQ ;
     hnrf->pRxBuffPtr = tbuf;
 
     /* --- enter RX mode --- */
@@ -304,6 +280,53 @@ HAL_StatusTypeDef NRF24L01_Recieve_IT(NRF24L01_HandleTypeDef *hnrf,uint8_t *tbuf
     return HAL_BUSY;
   }
 }
+/* ------- weak ISR function -------- */
+__weak void NRF_ReceiveACKCallback(NRF24L01_HandleTypeDef *hnrf){return;}
+__weak void NRF_RxCpltCallback(NRF24L01_HandleTypeDef *hnrf,uint8_t pipex){return;}
+__weak void NRF_RxPayloadAckCpltCallback(NRF24L01_HandleTypeDef *hnrf,uint8_t pipex){return;}
+/* ------- intermediate function -------- */
+void NRF_IRQHandler(NRF24L01_HandleTypeDef *hnrf){
+  uint8_t status=0;
+  NRF_ENTER_STANDBY(hnrf);
+  /* --- read status and clear bit immediately --- */
+  nrf24l01_read_reg(hnrf,cmd_READ_REG  | reg_STATUS,&status);
+  nrf24l01_write_reg(hnrf,cmd_WRITE_REG | reg_STATUS, status);
+  
+  /* --- receive data from pipex --- */
+  uint8_t pipex=((status & reg_STATUS__RX_P_NO_Msk) >> reg_STATUS__RX_P_NO_Pos ) & 0x7;
+  
+  /* --- is enable auto ACK with payload --- */
+  if(hnrf->Init.EnableAckPayLoad == NRF_ENABLE_ACK_PAYLOAD)
+  {
+    if(hnrf->pAckBuffPtr !=NULL || hnrf->AckBuffsize !=0 )
+    {  
+      nrf24l01_write_reg(hnrf,cmd_FLUSH_TX,hnrf->State);
+      nrf24l01_write_buf(hnrf,cmd_W_ACK_PAYLOAD | pipex ,hnrf->pAckBuffPtr,hnrf->AckBuffsize);
+    }
+  }
+  /* --- if RX_DR IRQ occur  --- */
+  if( status & reg_STATUS__RX_DR )
+  { 
+    /* --- if auto ACK with payload occur  --- */
+    if(status  & reg_STATUS__TX_DS){
+//      
+//      nrf24l01_write_reg(hnrf,cmd_FLUSH_RX,hnrf->State);
+      NRF_RxPayloadAckCpltCallback(hnrf,pipex);
+    }
+    if(pipex <6)
+      nrf24l01_read_buf(hnrf,cmd_READ_RX_PAYLOAD,hnrf->pRxBuffPtr,hnrf->Init.RxPipePayLoadWidth[pipex]);
+    NRF_RxCpltCallback(hnrf,pipex);
+    hnrf->State = NRF_STATE_READY;
+    return ;
+  }
+  
+  /* --- ready to get next package  --- */
+  //be a to do list
+}
+
+
+
+
 
 
 
@@ -334,14 +357,11 @@ static HAL_StatusTypeDef NRF24L01_Config(NRF24L01_HandleTypeDef *hnrf,NRF_InitTy
   
   nrf24l01_write_reg(hnrf,cmd_WRITE_REG | reg_SETUP_AW    ,NRF_InitStruct->RxTxAddrWidth2Regbit);
 
-  if(NRF_InitStruct->EnableDyanmeicPayLoadWidth == NRF_ENABLE_DYNAMIC_PLYLOAD_WIDTH )
-  {
-    nrf24l01_write_reg(hnrf,cmd_ACTIVATE, 0x73);
-    nrf24l01_write_reg(hnrf,cmd_WRITE_REG | reg_FEATURE  ,NRF_InitStruct->EnableDyanmeicPayLoadWidth);
-    nrf24l01_write_reg(hnrf,cmd_WRITE_REG | reg_DYNPD    ,NRF_InitStruct->DynamicPayLoadWidthPipe);
-  }
-  nrf24l01_write_reg(hnrf,cmd_WRITE_REG | reg_FEATURE  ,NRF_InitStruct->EnableAckPayLoad);
-
+  if(NRF_InitStruct->EnableAckPayLoad == NRF_ENABLE_ACK_PAYLOAD)
+    nrf24l01_write_reg(hnrf,cmd_ACTIVATE, 0x73); /* --- enable the command --- */
+  nrf24l01_write_reg(hnrf,cmd_WRITE_REG | reg_FEATURE    ,NRF_InitStruct->EnableAckPayLoad | NRF_InitStruct->EnableDyanmeicPayLoadWidth);
+  nrf24l01_write_reg(hnrf,cmd_WRITE_REG | reg_DYNPD      ,NRF_InitStruct->EnableDynamicPayLoadPipe);
+ 
   if(NRF_InitStruct->Mode == NRF_MODE_RX)
   {
     NRF24L01_Switch2_Rx(hnrf);
@@ -349,8 +369,16 @@ static HAL_StatusTypeDef NRF24L01_Config(NRF24L01_HandleTypeDef *hnrf,NRF_InitTy
   {
     NRF24L01_Switch2_Tx(hnrf);
   }
+  nrf24l01_write_reg(hnrf,cmd_FLUSH_TX,hnrf->State);
+  nrf24l01_write_reg(hnrf,cmd_FLUSH_RX,hnrf->State);
+  
+  hnrf->pAckBuffPtr=NULL;
+  hnrf->pRxBuffPtr=NULL;
+  hnrf->AckBuffsize=0;
+  
   hnrf->State =  NRF_STATE_READY;
   NRF24L01_Get_Instance(hnrf);
+  
   return HAL_OK;  
 }
 
@@ -393,7 +421,7 @@ void NRF24L01_Init(void){
   NRF_InitStruct.RfPower                    = NRF_RF_PWR_0dBm;
   NRF_InitStruct.UseLNA                     = NRF_SETUP_LNA;
   
-  NRF_InitStruct.Mode                       = NRF_MODE_RX ;
+  NRF_InitStruct.Mode                       = NRF_MODE_TX ;
   NRF_InitStruct.EnablePipe                 = NRF_DATE_PIPE_ALL ;
   NRF_InitStruct.AutoAckPipe                = NRF_DATE_ACK_PIPE_ALL;
   NRF_InitStruct.RxTxAddrWidth2Regbit       = NRF_ADDRWIDTH_REGBIT_5BYTES;
@@ -402,10 +430,15 @@ void NRF24L01_Init(void){
   NRF_InitStruct.TxMsgAddr                  = (uint8_t*)txmsgadress;
   NRF_InitStruct.RxPipePayLoadWidth         = (uint8_t*)pipepayloadwidth;
   NRF_InitStruct.TxPayLoadWidth             = 32; 
-  NRF_InitStruct.EnableDyanmeicPayLoadWidth = NRF_DISABLE_DYNAMIC_PLYLOAD_WIDTH;
-  NRF_InitStruct.DynamicPayLoadWidthPipe    = NRF_DYNAMIC_PAYLOAD_WIDTH_NONE;
   
-  NRF_InitStruct.EnableAckPayLoad           = NRF_DISABLE_ACK_PAYLOAD;
+  /* --- In order to enable Auto Acknowledgement with payload  --- *
+   * --- the dynamic payload width should be set               --- */
+  NRF_InitStruct.EnableAckPayLoad           = NRF_ENABLE_ACK_PAYLOAD;
+  
+  NRF_InitStruct.EnableDyanmeicPayLoadWidth = NRF_ENABLE_DYNAMIC_PLYLOAD_WIDTH;
+  NRF_InitStruct.EnableDynamicPayLoadPipe   = NRF_DYNAMIC_PAYLOAD_WIDTH_P0;
+  
+  
   
 	NRF24L01_Config(&hnrf24l01,&NRF_InitStruct);                   
 }

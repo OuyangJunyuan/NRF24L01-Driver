@@ -290,6 +290,7 @@
 #define NRF_DISABLE_DYNAMIC_PLYLOAD_WIDTH  0x00
 
 #define NRF_DYNAMIC_PAYLOAD_WIDTH_NONE  0x00
+#define NRF_DYNAMIC_PAYLOAD_WIDTH_ALL   0X3F
 #define NRF_DYNAMIC_PAYLOAD_WIDTH_P0    reg_DYNPD__DPL_P0
 #define NRF_DYNAMIC_PAYLOAD_WIDTH_P1    reg_DYNPD__DPL_P1
 #define NRF_DYNAMIC_PAYLOAD_WIDTH_P2    reg_DYNPD__DPL_P2
@@ -339,6 +340,7 @@ typedef enum{
   NRF_STATE_READY         =0X20U,
   NRF_STATE_BUSY_TX       =0X21U,
   NRF_STATE_BUSY_RX       =0X22U,
+  NRF_STATE_BUSY_RX_IRQ   =0X23U,
   NRF_STATE_TIMEOUT       =0XA0U, 
   NRF_STATE_ERROR         =0XE0U
 }NRF_StateTypeDef;
@@ -362,7 +364,7 @@ typedef struct{
   uint8_t                 TxPayLoadWidth;
   
   uint8_t                 EnableDyanmeicPayLoadWidth;
-  uint8_t                 DynamicPayLoadWidthPipe;
+  uint8_t                 EnableDynamicPayLoadPipe;
   uint8_t                 EnableAckPayLoad;
 
 }NRF_InitTypeDef;
@@ -376,19 +378,10 @@ typedef struct{
 	uint16_t                pin[3];
   SPI_HandleTypeDef       *hspix;
   
-//  uint8_t                 *pTxBuffPtr;
-//  uint16_t                TxXferSize;
-//  __IO uint16_t           TxXferCount;
-//  
   uint8_t                 *pRxBuffPtr;
-  uint8_t                 RxXferSize;
-//  
-//  uint8_t                 *pAckBuffPtr;
-//  uint16_t                AckXferSize;
-//  __IO uint16_t           AckXferCount;
-  
-  HAL_LockTypeDef         Lock;
-  
+  uint8_t                 *pAckBuffPtr;
+  uint8_t                  AckBuffsize;
+  uint8_t                 stamp;
   __IO NRF_StateTypeDef   State;
 }NRF24L01_HandleTypeDef;
 
@@ -443,8 +436,10 @@ HAL_StatusTypeDef NRF24L01_Recieve(NRF24L01_HandleTypeDef *hnrf,uint8_t *tbuf,ui
 HAL_StatusTypeDef NRF24L01_Recieve_IT(NRF24L01_HandleTypeDef *hnrf,uint8_t *tbuf);
 
 void NRF_IRQHandler(NRF24L01_HandleTypeDef *hnrf); //called by ext interrupt ISR  
-void NRF_RxCpltCallback(NRF24L01_HandleTypeDef *hnrf,uint8_t pipex);
 
+void NRF_ReceiveACKCallback(NRF24L01_HandleTypeDef *hnrf);
+void NRF_RxCpltCallback(NRF24L01_HandleTypeDef *hnrf,uint8_t pipex);
+void NRF_RxPayloadAckCpltCallback(NRF24L01_HandleTypeDef *hnrf,uint8_t pipex);
 
 /******************************
  * extern gobal varable 
