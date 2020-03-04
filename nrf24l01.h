@@ -1,195 +1,454 @@
 #ifndef __24L01_H
 #define __24L01_H
-
+/*************************************
+ * @file           : nrf24l01.h
+ * @brief          : ic driver
+ * @author         : Ouyang Junyuan
+ *************************************
+ * @attention      :
+ *  configuration 
+ *  at the file-end in nrf24l01.c
+ *************************************/
+ 
+ 
+ 
 #include "spi.h"
 
+/******************************
+ * NRF24L01 spi command table 
+ ******************************/
+#define	cmd_READ_REG	0x00    
+#define cmd_WRITE_REG 0x20    
+#define cmd_READ_RX_PAYLOAD 0x61	
+#define cmd_WRITE_TX_PAYLOAD 0xA0 
+#define cmd_FLUSH_TX 0xE1  
+#define cmd_FLUSH_RX 0xE2	 
+#define cmd_REUSE_TX_PAYLOAD  0xE3
+#define cmd_ACTIVATE 0x50
+#define cmd_R_RX_PL_WID 0x60
+#define cmd_W_TX_PAYLOAD_NOACK 0x58
+#define cmd_W_ACK_PAYLOAD 0xA8
+#define cmd_NOP 0xFF  //dummy operation to get status register msgs
 
-#define INIT_PTX_MODE 0x00
-#define INIT_PRX_MODE 0X01
-#define rx_payload_width(n)  n
-#define tx_payload_width(n)  n
+/******************************
+ * NRF24L01 register map table 
+ ******************************/
+#define reg_CONFIG 0x00 
+#define reg_CONFIG__MASK_RX_DR_Pos   (6U)
+#define reg_CONFIG__MASK_RX_DR_Msk   (0x1UL << reg_CONFIG__MASK_RX_DR_Pos) 
+#define reg_CONFIG__MASK_RX_DR       reg_CONFIG__MASK_RX_DR_Msk
+#define reg_CONFIG__MASK_TX_DS_Pos   (5U)
+#define reg_CONFIG__MASK_TX_DS_Msk   (0x1UL << reg_CONFIG__MASK_TX_DS_Pos) 
+#define reg_CONFIG__MASK_TX_DS       reg_CONFIG__MASK_TX_DS_Msk
+#define reg_CONFIG__MASK_MAX_RT_Pos  (4U)
+#define reg_CONFIG__MASK_MAX_RT_Msk  (0x1UL << reg_CONFIG__MASK_MAX_RT_Pos) 
+#define reg_CONFIG__MASK_MAX_RT     reg_CONFIG__MASK_MAX_RT_Msk
+#define reg_CONFIG__MASK_IRQ_Pos     (4U)
+#define reg_CONFIG__MASK_IRQ_Msk     (0x7UL << reg_CONFIG__MASK_IRQ_Pos) 
+#define reg_CONFIG__MASK_IRQ         reg_CONFIG__MASK_IRQ_Msk
+#define reg_CONFIG__EN_CRC_Pos       (3U)        
+#define reg_CONFIG__EN_CRC_Msk       (0x1UL << reg_CONFIG__EN_CRC_Pos) 
+#define reg_CONFIG__EN_CRC           reg_CONFIG__EN_CRC_Msk
+#define reg_CONFIG__CRCO_Pos         (2U)
+#define reg_CONFIG__CRCO_Msk         (0x1UL << reg_CONFIG__CRCO_Pos) 
+#define reg_CONFIG__CRCO             reg_CONFIG__CRCO_Msk
+#define reg_CONFIG__PWR_UP_Pos       (1U)
+#define reg_CONFIG__PWR_UP_Msk       (0x1UL << reg_CONFIG__PWR_UP_Pos) 
+#define reg_CONFIG__PWR_UP           reg_CONFIG__PWR_UP_Msk
+#define reg_CONFIG__PRIM_RX_Pos      (0U)
+#define reg_CONFIG__PRIM_RX_Msk      (0x1UL << reg_CONFIG__PRIM_RX_Pos) 
+#define reg_CONFIG__PRIM_RX          reg_CONFIG__PRIM_RX_Msk
 
-#define en_aa_channel(n) n
-#define en_rxaar_channel(n) n
-#define rf_ch_frequencychannel(n)  n
 
-#define air_data_rate_2Mbps 0x08
-#define air_data_rate_1Mbps 0x00
-#define tx_output_power_Negative18dBm 0x00
-#define tx_output_power_Negative12dBm 0x02
-#define tx_output_power_Negative06dBm 0x04
-#define tx_output_power_0dBm  0x06
+#define reg_EN_AA 0x01
+#define reg_EN_AA__ENAA_P5_Pos   (5U)
+#define reg_EN_AA__ENAA_P4_Pos   (4U)
+#define reg_EN_AA__ENAA_P3_Pos   (3U)
+#define reg_EN_AA__ENAA_P2_Pos   (2U)
+#define reg_EN_AA__ENAA_P1_Pos   (1U)
+#define reg_EN_AA__ENAA_P0_Pos   (0U)
+#define reg_EN_AA__ENAA_P5       (0x1UL << reg_EN_AA__ENAA_P5_Pos) 
+#define reg_EN_AA__ENAA_P4       (0x1UL << reg_EN_AA__ENAA_P4_Pos) 
+#define reg_EN_AA__ENAA_P3       (0x1UL << reg_EN-AA__ENAA_P3_Pos) 
+#define reg_EN_AA__ENAA_P2       (0x1UL << reg_EN_AA__ENAA_P2_Pos) 
+#define reg_EN_AA__ENAA_P1       (0x1UL << reg_EN_AA__ENAA_P1_Pos) 
+#define reg_EN_AA__ENAA_P0       (0x1UL << reg_EN_AA__ENAA_P0_Pos) 
 
-#define enable_LNA_gain 0x01
-#define unable_LNA_gain 0x00
+
+#define reg_EN_RXADDR 0x02
+#define reg_EN_RXADDR__ERX_P5_Pos   (5U)
+#define reg_EN_RXADDR__ERX_P4_Pos   (4U)
+#define reg_EN_RXADDR__ERX_P3_Pos   (3U)
+#define reg_EN_RXADDR__ERX_P2_Pos   (2U)
+#define reg_EN_RXADDR__ERX_P1_Pos   (1U)
+#define reg_EN_RXADDR__ERX_P0_Pos   (0U)
+#define reg_EN_RXADDR__ERX_P5       (0x1UL << reg_EN_RXADDR__ERX_P5_Pos) 
+#define reg_EN_RXADDR__ERX_P4       (0x1UL << reg_EN_RXADDR__ERX_P4_Pos) 
+#define reg_EN_RXADDR__ERX_P3       (0x1UL << reg_EN_RXADDR__ERX_P3_Pos) 
+#define reg_EN_RXADDR__ERX_P2       (0x1UL << reg_EN_RXADDR__ERX_P2_Pos) 
+#define reg_EN_RXADDR__ERX_P1       (0x1UL << reg_EN_RXADDR__ERX_P1_Pos) 
+#define reg_EN_RXADDR__ERX_P0       (0x1UL << reg_EN_RXADDR__ERX_P0_Pos) 
 
 
+#define reg_SETUP_AW  0x03
+#define reg_SETUP_AW__AW_Pos       (0U)        
+#define reg_SETUP_AW__AW_Msk       (0x3UL << reg_SETUP_AW__AW_Pos) 
+#define reg_SETUP_AW__AW           reg_SETUP_AW__AW_Msk
+#define reg_SETUP_AW__AW_0         (0x1UL << reg_SETUP_AW__AW_Pos) 
+#define reg_SETUP_AW__AW_1         (0x2UL << reg_SETUP_AW__AW_Pos) 
 
 
-typedef struct
-{
-	GPIO_TypeDef *CEport;
-	GPIO_TypeDef *CSNport;
-  GPIO_TypeDef *IRQport;
+#define	reg_SETUP_RETR 0x04
+#define reg_SETUP_RETR__ARD_Pos    (4U)        
+#define reg_SETUP_RETR__ARD_Msk    (0x1UL << reg_SETUP_RETR__ARD_Pos)
+#define reg_SETUP_RETR__ARD(n)     ( (n)   *    reg_SETUP_RETR__ARD_Msk) 
 
-	uint16_t CEpin;
-	uint16_t CSNpin;
-	uint16_t IRQpin;
+#define reg_SETUP_RETR__ARC_Pos    (0U)        
+#define reg_SETUP_RETR__ARC_Msk    (0x1UL << reg_SETUP_RETR__ARC_Pos)
+#define reg_SETUP_RETR__ARC(n)     ( (n)   *    reg_SETUP_RETR__ARC_Msk)     
 
-	uint8_t MODE;
 
-	uint8_t en_rxaar;
-	uint8_t en_aa;
-	uint8_t rf_ch;
-	uint8_t rf_setup;
+#define reg_RF_CH		0x05
+#define reg_RF_CH__RF_CH_Pos       (0U)      
+#define reg_RF_CH__RF_CH_Msk       (0x1UL << reg_RF_CH__RF_CH_Pos)
+#define reg_RF_CH__RF_CH(n)        ( (n)   *    reg_RF_CH__RF_CH_Msk)  
 
-	uint8_t *rx_addr;
-	uint8_t *tx_addr;
 
-	uint8_t RX_PLOAD_WIDTH;
-	uint8_t TX_PLOAD_WIDTH;
+#define reg_RF_SETUP 0x06
+#define reg_RF_SETUP__RF_DR_Pos   (3U)
+#define reg_RF_SETUP__RF_DR_Msk   (0x1UL <<  reg_RF_SETUP__RF_DR_Pos)
+#define reg_RF_SETUP__RF_DR       reg_RF_SETUP__RF_DR_Msk
+#define reg_RF_SETUP__RF_PWR_Pos  (1U)
+#define reg_RF_SETUP__RF_PWR_Msk  (0x3UL <<  reg_RF_SETUP__RF_PWR_Pos)
+#define reg_RF_SETUP__RF_PWR      reg_RF_SETUP__RF_PWR_Msk
+#define reg_RF_SETUP__RF_PWR_0    (0x1UL <<  reg_RF_SETUP__RF_PWR_Pos)
+#define reg_RF_SETUP__RF_PWR_1    (0x2UL <<  reg_RF_SETUP__RF_PWR_Pos)
+#define reg_RF_SETUP__LNA_Pos     (0U)
+#define reg_RF_SETUP__LNA_Msk     (0x1UL <<  reg_RF_SETUP__LNA_Pos)
+#define reg_RF_SETUP__LNA         reg_RF_SETUP__LNA_Msk
 
-	SPI_HandleTypeDef *hspin;
 
-	uint8_t status;
+#define reg_STATUS	0x07            
+#define reg_STATUS__RX_DR_Pos     (6U)
+#define reg_STATUS__RX_DR_Msk     (0x1UL <<  reg_STATUS__RX_DR_Pos)
+#define reg_STATUS__RX_DR         reg_STATUS__RX_DR_Msk
+#define reg_STATUS__TX_DS_Pos     (5U)
+#define reg_STATUS__TX_DS_Msk     (0x1UL <<  reg_STATUS__TX_DS_Pos)
+#define reg_STATUS__TX_DS         reg_STATUS__TX_DS_Msk
+#define reg_STATUS__MAX_RT_Pos    (4U)
+#define reg_STATUS__MAX_RT_Msk    (0x1UL <<  reg_STATUS__MAX_RT_Pos)
+#define reg_STATUS__MAX_RT        reg_STATUS__MAX_RT_Msk
+#define reg_STATUS__RX_P_NO_Pos   (1U)
+#define reg_STATUS__RX_P_NO_Msk   (0x7UL <<  reg_STATUS__RX_P_NO_Pos)
+#define reg_STATUS__TX_FULL_Pos   (0U)
+#define reg_STATUS__TX_FULL_Msk   (0x1UL <<  reg_STATUS__TX_FULL_Pos)
+#define reg_STATUS__TX_FULL       reg_STATUS__TX_FULL_Msk
+
+
+#define reg_OBSERVE_TX 0x08
+#define reg_OBSERVE_TX__PLOS_CNT_Pos   (4U)
+#define reg_OBSERVE_TX__PLOS_CNT_Msk   (0x1UL <<  reg_OBSERVE_TX__PLOS_CNT_Pos)
+#define reg_OBSERVE_TX__PLOS_CNT       reg_OBSERVE_TX__PLOS_CNT_Msk       
+#define reg_OBSERVE_TX__ARC_CNT_Pos    (0U)
+#define reg_OBSERVE_TX__ARC_CNT_Msk    (0x1UL <<  reg_OBSERVE_TX__ARC_CNT_Pos)
+#define reg_OBSERVE_TX__ARC_CNT        reg_OBSERVE_TX__ARC_CNT_Msk  
+
+
+#define	reg_CD 0x09
+#define reg_CD__CD_Pos   (0U)
+#define reg_CD__CD_Msk   (0x1UL <<  reg_CD__CD_Pos)
+#define reg_CD__CD       reg_CD__CD_Msk
+
+
+#define reg_RX_ADDR_P0 0x0A
+#define reg_RX_ADDR_P1 0x0B
+#define reg_RX_ADDR_P2 0x0C
+#define reg_RX_ADDR_P3 0x0D
+#define reg_RX_ADDR_P4 0x0E
+#define reg_RX_ADDR_P5 0x0F
+#define reg_RX_ADDR_P0_Msk  0xffffffffffUL
+#define reg_RX_ADDR_P1_Msk  0xffffffffffUL
+#define reg_RX_ADDR_P2_Msk  0xfU
+#define reg_RX_ADDR_P3_Msk  0xfU
+#define reg_RX_ADDR_P4_Msk  0xfU
+#define reg_RX_ADDR_P5_Msk  0xfU
+
+
+#define reg_TX_ADDR	0x10	 
+#define reg_TX_ADDR_Msk  0xffffffffffUL
+
+
+#define reg_RX_PW_P0	0x11     
+#define	reg_RX_PW_P1	0x12
+#define	reg_RX_PW_P2	0x13
+#define	reg_RX_PW_P3	0x14
+#define	reg_RX_PW_P4	0x15
+#define	reg_RX_PW_P5	0x16
+#define reg_RX_PW_P0_Msk  (0X3F)
+#define reg_RX_PW_P1_Msk  (0X3F)
+#define reg_RX_PW_P2_Msk  (0X3F)
+#define reg_RX_PW_P3_Msk  (0X3F)
+#define reg_RX_PW_P4_Msk  (0X3F)
+#define reg_RX_PW_P5_Msk  (0X3F)
+
+
+#define reg_FIFO_STATUS	0x17
+#define reg_FIFO_STATUS__TX_REUSE_Pos     (6U)
+#define reg_FIFO_STATUS__TX_REUSE_Msk     (0x1UL  <<    reg_FIFO_STATUS__TX_REUSE_Pos)
+#define reg_FIFO_STATUS__TX_REUSE         reg_FIFO_STATUS__TX_REUSE_Msk
+#define reg_FIFO_STATUS__TX_FULL_Pos      (5U)
+#define reg_FIFO_STATUS__TX_FULL_Msk      (0x1UL  <<    reg_FIFO_STATUS__TX_FULL_Pos)
+#define reg_FIFO_STATUS__TX_FULL          reg_FIFO_STATUS__TX_FULL_Msk
+#define reg_FIFO_STATUS__TX_EMPTY_Pos     (4U)
+#define reg_FIFO_STATUS__TX_EMPTY_Msk     (0x1UL  <<    reg_FIFO_STATUS__TX_EMPTY_Pos)
+#define reg_FIFO_STATUS__TX_EMPTY         reg_FIFO_STATUS__TX_EMPTY_Msk
+#define reg_FIFO_STATUS__RX_FULL_Pos      (1U)
+#define reg_FIFO_STATUS__RX_FULL_Msk      (0x1UL  <<    reg_FIFO_STATUS__RX_FULL_Pos)
+#define reg_FIFO_STATUS__RX_FULL          reg_FIFO_STATUS__RX_FULL_Msk
+#define reg_FIFO_STATUS__RX_EMPTY_Pos     (0U)
+#define reg_FIFO_STATUS__RX_EMPTY_Msk     (0x1UL  <<    reg_FIFO_STATUS__RX_EMPTY_Pos)
+#define reg_FIFO_STATUS__RX_EMPTY         reg_FIFO_STATUS__RX_EMPTY_Msk
+
+
+#define reg_DYNPD   0x1C
+#define reg_DYNPD__DPL_P5           (0x1UL<< 5)
+#define reg_DYNPD__DPL_P4           (0x1UL<< 4)         
+#define reg_DYNPD__DPL_P3           (0x1UL<< 3)
+#define reg_DYNPD__DPL_P2           (0x1UL<< 2)
+#define reg_DYNPD__DPL_P1           (0x1UL<< 1)
+#define reg_DYNPD__DPL_P0           (0x1UL<< 0)
+
+
+#define reg_FEATURE 0x1D
+#define reg_FEATURE__EN_DPL_Pos     (2U)
+#define reg_FEATURE__EN_DPL_Msk     (0x1UL << reg_FEATURE__EN_DPL_Pos)
+#define reg_FEATURE__EN_DPL         reg_FEATURE__EN_DPL_Msk
+#define reg_FEATURE__EN_ACK_PAY_Pos (1U)
+#define reg_FEATURE__EN_ACK_PAY_Msk (0x1UL << reg_FEATURE__EN_ACK_PAY_Pos)
+#define reg_FEATURE__EN_ACK_PAY     reg_FEATURE__EN_ACK_PAY_Msk
+#define reg_FEATURE__EN_DYN_ACK_Pos (0U)
+#define reg_FEATURE__EN_DYN_ACK_Msk (0x1UL << reg_FEATURE__EN_DYN_ACK_Pos)
+#define reg_FEATURE__EN_DYN_ACK     reg_FEATURE__EN_DYN_ACK_Msk
+
+
+/******************************
+ * Init Value Define
+ ******************************/
+#define NRF_DISABLE_IRQ_RX  reg_CONFIG__MASK_RX_DR
+#define NRF_DISABLE_IRQ_TX  reg_CONFIG__MASK_TX_DS
+#define NRF_DISABLE_IRQ_RT  reg_CONFIG__MASK_MAX_RT 
+#define NRF_DISABLE_IRQ_ALL reg_CONFIG__MASK_IRQ
+ 
+#define NRF_POWER_UP reg_CONFIG__PWR_UP
+#define NRF_POWER_DOWN 0x00
+#define NRF_MODE_RX  reg_CONFIG__PRIM_RX
+#define NRF_MODE_TX  0x00
+
+#define NRF_DATE_PIPE_ALL  0x3f
+#define NRF_DATE_PIPE_NONE 0x00
+#define NRF_DATE_PIPE0 reg_EN_RXADDR__ERX_P0
+#define NRF_DATE_PIPE1 reg_EN_RXADDR__ERX_P1
+#define NRF_DATE_PIPE2 reg_EN_RXADDR__ERX_P2
+#define NRF_DATE_PIPE3 reg_EN_RXADDR__ERX_P3
+#define NRF_DATE_PIPE4 reg_EN_RXADDR__ERX_P4
+#define NRF_DATE_PIPE5 reg_EN_RXADDR__ERX_P5
+
+#define NRF_DATE_ACK_PIPE_ALL  0x3f
+#define NRF_DATE_ACK_PIPE_NONE 0x00
+#define NRF_DATE_ACK_PIPE0 reg_EN_AA__ENAA_P0
+#define NRF_DATE_ACK_PIPE1 reg_EN_AA__ENAA_P1
+#define NRF_DATE_ACK_PIPE2 reg_EN_AA__ENAA_P2
+#define NRF_DATE_ACK_PIPE3 reg_EN_AA__ENAA_P3
+#define NRF_DATE_ACK_PIPE4 reg_EN_AA__ENAA_P4
+#define NRF_DATE_ACK_PIPE5 reg_EN_AA__ENAA_P5
+
+#define NRF_ADDRWIDTH_REGBIT_5BYTES   (reg_SETUP_AW__AW_0 | reg_SETUP_AW__AW_1)
+#define NRF_ADDRWIDTH_REGBIT_4BYTES   (reg_SETUP_AW__AW_1)
+#define NRF_ADDRWIDTH_REGBIT_3BYTES   (reg_SETUP_AW__AW_0)
+
+#define NRF_ADDRWIDTH_5BYTES (NRF_ADDRWIDTH_REGBIT_5BYTES + 2)
+#define NRF_ADDRWIDTH_4BYTES (NRF_ADDRWIDTH_REGBIT_4BYTES + 2)
+#define NRF_ADDRWIDTH_3BYTES (NRF_ADDRWIDTH_REGBIT_3BYTES + 2)
+
+#define NRF_AutoRetransmit_DelayTime_us(n)  reg_SETUP_RETR__ARD(((uint8_t)(n/250 - 1)))
+#define NRF_AutoRetransmit_Max(n)           reg_SETUP_RETR__ARC(((uint8_t)n))
+
+#define NRF_FREQUENCY_CHANNEL(n)            reg_RF_CH__RF_CH(((uint8_t)n))
+
+#define NRF_AIR_DATA_RATE_1MHz  0x00
+#define NRF_AIR_DATA_RATE_2MHz  reg_RF_SETUP__RF_DR
+
+#define NRF_RF_PWR_n18dBm    (0x00)
+#define NRF_RF_PWR_n12dBm    (reg_RF_SETUP__RF_PWR_0)
+#define NRF_RF_PWR_n6dBm     (reg_RF_SETUP__RF_PWR_1) 
+#define NRF_RF_PWR_0dBm      (reg_RF_SETUP__RF_PWR_1 | reg_RF_SETUP__RF_PWR_0)
+
+#define NRF_CLOSE_LNA         0x00
+#define NRF_SETUP_LNA         reg_RF_SETUP__LNA
+
+#define NRF_ENABLE_DYNAMIC_PLYLOAD_WIDTH   reg_FEATURE__EN_DPL
+#define NRF_DISABLE_DYNAMIC_PLYLOAD_WIDTH  0x00
+
+#define NRF_DYNAMIC_PAYLOAD_WIDTH_NONE  0x00
+#define NRF_DYNAMIC_PAYLOAD_WIDTH_P0    reg_DYNPD__DPL_P0
+#define NRF_DYNAMIC_PAYLOAD_WIDTH_P1    reg_DYNPD__DPL_P1
+#define NRF_DYNAMIC_PAYLOAD_WIDTH_P2    reg_DYNPD__DPL_P2
+#define NRF_DYNAMIC_PAYLOAD_WIDTH_P3    reg_DYNPD__DPL_P3
+#define NRF_DYNAMIC_PAYLOAD_WIDTH_P4    reg_DYNPD__DPL_P4
+#define NRF_DYNAMIC_PAYLOAD_WIDTH_P5    reg_DYNPD__DPL_P5
+
+#define NRF_ENABLE_ACK_PAYLOAD  reg_FEATURE__EN_ACK_PAY
+#define NRF_DISABLE_ACK_PAYLOAD 0x00
+
+
+/******************************
+ * Application Macro  
+ ******************************/
+/* --- physical pin mask define --- */
+#define NRF_PIN_CSN 0
+#define NRF_PIN_CE 1 
+#define NRF_PIN_IRQ 2
+/* --- bind physical pin macro --- */
+#define NRF_SET_PIN(__HANDLE__,__PIN_MASK__,__PORT__,__PIN__)  __HANDLE__.port[__PIN_MASK__]=__PORT__ ; __HANDLE__.pin[__PIN_MASK__]=__PIN__ 
+           
+/******************************
+ * NRF24L01 Lib Typedef Table  
+ ******************************/
+/* --- nrf typedef --- */
+typedef struct{
+  uint8_t CONFIG;
+  uint8_t EN_AA;
+  uint8_t EN_RXADDR;
+  uint8_t SETUP_AW;
+  uint8_t SETUP_RETR;
+  uint8_t RF_CH;
+  uint8_t RF_SETUP;
+  uint8_t STATUS;
+  uint8_t OBSERVE_TX;
+  uint8_t CD;
+  uint64_t RX_ADDR_P[6]; 
+  uint64_t TX_ADDR;
+  uint8_t RX_PW_P[6];
+  uint8_t FIFO_STATUS;
+  uint8_t DYNPD;
+  uint8_t FEATURE;
+}NRF_TypeDef;
+
+typedef enum{
+  NRF_STATE_RESET         =0X00U,
+  NRF_STATE_READY         =0X20U,
+  NRF_STATE_BUSY_TX       =0X21U,
+  NRF_STATE_BUSY_RX       =0X22U,
+  NRF_STATE_TIMEOUT       =0XA0U, 
+  NRF_STATE_ERROR         =0XE0U
+}NRF_StateTypeDef;
+
+
+typedef struct{
+  uint8_t                 Mode;
+  uint8_t                 EnablePipe;
+ 	uint8_t                 AutoAckPipe;
+  uint8_t                 RxTxAddrWidth2Regbit;
+  uint8_t                 RxTxAddrWidth;
+  uint8_t                 AutoReTransmitDelayTime;
+  uint8_t                 AutoRetransmitCountMax;  
+  uint8_t                 FrequncyChannel;  
+  uint8_t                 RfAirDataRate;  
+  uint8_t                 RfPower;  
+  uint8_t                 UseLNA;  
+  uint8_t                 (*RxPipeAddr)[5];  
+  uint8_t                 *TxMsgAddr;  
+  uint8_t                 *RxPipePayLoadWidth; 
+  uint8_t                 TxPayLoadWidth;
+  
+  uint8_t                 EnableDyanmeicPayLoadWidth;
+  uint8_t                 DynamicPayLoadWidthPipe;
+  uint8_t                 EnableAckPayLoad;
+
+}NRF_InitTypeDef;
+ 
+
+typedef struct{
+  NRF_TypeDef             Instance;
+  NRF_InitTypeDef         Init;
+  
+	GPIO_TypeDef            *port[3];
+	uint16_t                pin[3];
+  SPI_HandleTypeDef       *hspix;
+  
+//  uint8_t                 *pTxBuffPtr;
+//  uint16_t                TxXferSize;
+//  __IO uint16_t           TxXferCount;
+//  
+  uint8_t                 *pRxBuffPtr;
+  uint8_t                 RxXferSize;
+//  
+//  uint8_t                 *pAckBuffPtr;
+//  uint16_t                AckXferSize;
+//  __IO uint16_t           AckXferCount;
+  
+  HAL_LockTypeDef         Lock;
+  
+  __IO NRF_StateTypeDef   State;
 }NRF24L01_HandleTypeDef;
 
-#define NRF24L01_STATUS_DISCONNECT 0Xff
-
-
-//SPI对nrf24l01寄存器操作指令
-#define	NRF_READ_REG	0x00    //读取状态和操作寄存器操作
-#define NRF_WRITE_REG 0x20    //写状态和操作寄存器操作，只在掉电和待机模式下可用
-
-#define READ_RX_PAYLOAD 0x61	//读取RX有效数据 1-32字节,读操作从字节0开始，读取完毕后FIFO寄存器有效数据清零。在接受模式下使用
-#define WRITE_TX_PAYLOAD 0xA0 //写TX有效数据 1-32字节，写字节都是从0开始的，在发射模式下使用
-
-#define FLUSH_TX 0xE1  //清除TX FIFO寄存器，在发射模式下使用
-#define FLUSH_RX 0xE2	 //清除RX FIFO寄存器，在接受模式下使用	在传输应答信号时不应执行，否则应答信号无法被完整传输
-
-#define REUSE_TX_PAYLOAD  0xE3 //重新使用上一个传输的数据包，当CE为高过程中，数据包被不断的重新发射。直到W_TX_PAYLOAD or FLUSH TX 被执行。数据重发功能必须在发射数据包过程中禁止
-
-#define NOP 0xFF  //空操作，用来读取状态寄存器
-
-//nrf24l01寄存器地址
-#define CONFIG 0x00  // 配置-寄存器  的地址
-											//0位PRIM_RX：1：接收模式，0：发射模式
-											//1位PWR_UP:  1:上电， 0：掉电
-											//2位CRCO：	 0：8位CRC校验， 1：16位CRC校验
-											//3位EN_CRC: CRC使能，如果EN-AA有1个位高，则EN_CRC同步为高
-											//4为MASK_MAX_RT: 0:MAX_RT中断(最大重发次数)产生IRQ引脚电平为低，1：IRQ脚不产生MAX_RT中断
-											//5位MASK_TX_DS:	0:IRQ中断显示TX_DS(transmit data sent)  1：屏蔽
-											//6位MASK_RX_DR:	0:IRQ中断显示RX_DR(recieve data ready)  1；屏蔽
-											//7位无： 只能位0
-
-
-#define EN_AA 0x01 	  //ENABLE-AUTO-ACKKNOWLEGEMENT 使能自动应答功能
-											//0-5位：0-5通道： 1：对应通道启动自动应答
-											//6和7位：只能是00
-
-
-#define EN_RXADDR 0x02//接收地址使能
-											//0-5位：0-5通道： 0：使能对应通道
-											//6-7位：00 only
-
-#define SETUP_AW  0x03//设置地址宽度(对所有通道)
-											//1-0两位:	01：3字节 10：4字节  11：5字节宽度
-
-#define	SETUP_RETR 0x04 //建立自动重发功能(setup auto retransmit)
-											  //3：0位：0000：不自动重发，0001：自动重发1次 --- 1111：自动重发15次
-												//7：4位：自动重发延时 0000：250+86um，	0001：500+86us ....1111：4000+86us
-
-#define RF_CH		0x05	//RF CHANNEL
-											//7	设置：只能是0
-											//6：0设置： 设置工作通道频率
-
-#define RF_SETUP 0x06 //射频寄存器
-											//0位：设置低噪声增益
-											//2：1位：发射功率	00：-18dbm，01：-12dbm，10：-6dbm，11：0dbm
-											//3位：数据传输率 0：1mbps，1：2mbps
-											//其余位0
-
-#define STATUS	0x07	//状态寄存器
-											//0位：TX FIFO(TX_FULL)  0：TXFIFO寄存器未满，1：满了
-											//3：1位：接收数据通道，000-101：数据通道号，110：未使用，111：RX FIFO 满了
-											//4位：MAX_RT 达到最大重发次数中断，写1：清除中断，必须清除后才能继续进行通信。
-											//5位：TX_DS 数据发送完成中断：发送完后自动产生，写1为清除
-											//6位：RX_DR 接收数据中断：收到有效数据后位1。写1清除。
-											//7位：0	only
-#define STATUS_MAX_RT 0x10
-#define STATUS_TX_OK 0x20
-#define STATUS_RX_OK 0x40
-
-
-#define OBSERVE_TX 0x08//发送检测寄存器
-											 //7：4位：数据包丢失计数器，当写RF_CH寄存器时复位，丢失15个后自动重启
-											 //3：0位：重发计数器，发送新数据包时此寄存器复位
-
-#define	CD 0x09				//载波检测：0位：载波检测
-											//7：1位：全0
-
-
-#define RX_ADDR_P0 0x0A// 39：0位：通道0接收地址数据，最大5字节长，低字节先写，所写字节由SETUUP_AW决定
-#define RX_ADDR_P1 0x0B//	39：0位：通道1接收地址数据，最大5字节长，...
-#define RX_ADDR_P2 0x0C//	7：0位：通道2接收地址数据，最低字节可设置，膏滋节必须和RX_ADDR_P1[39:8]相等
-#define RX_ADDR_P3 0x0D//	7：0位：通道3接收地址数据...
-#define RX_ADDR_P4 0x0E// 7：0位：通道4接收地址数据...
-#define RX_ADDR_P5 0x0F// 7：0位：通道5接收地址数据...
-
-
-#define TX_ADDR	0x10	 //39：0位：40=8*5发送地址(先写低字节)在增强型 ShockBurstTM 模式下 RX_ADDR_P0 与此地址相等。
-
-#define RX_PW_P0	0x11 //PAYLOAD-WIDTH 5:0位：接收数据通道0有效数据宽度，1-32：1-32字节宽
-											 //7：6位：00
-#define	RX_PW_P1	0x12
-#define	RX_PW_P2	0x13
-#define	RX_PW_P3	0x14
-#define	RX_PW_P4	0x15
-#define	RX_PW_P5	0x16
-
-#define FIFO_STATUS	0x17//FIFO寄存器状态
-												//0位：RX_EMPTY	0：RX FIFO寄存器非空，1：RX FIFO寄存器空了
-												//1位：RX_FULL 0：RX FIFO 未满，1：满了
-												//3：2位：默认00
-												//4位：TX_EMPTY	0：TX FIFO寄存器非空，1：空
-												//5位：TX_FULL	0:TX	FIFO未满，1：满了
-												//6位：TX_REUSE 若 TX_REUSE=1 则当 CE 位高电平状态时不断 发送上一数据包。TX_REUSE 通过 SPI 指令 REUSE_TX_PL 设置，通过 W_TX_PALOAD 或 FLUSH_TX 复位。
-												//7位：默认0
-
-
-
-#define CSN_0 	HAL_GPIO_WritePin(hnrf24l01.CSNport, hnrf24l01.CSNpin,GPIO_PIN_RESET)
-#define CSN_1  	HAL_GPIO_WritePin(hnrf24l01.CSNport, hnrf24l01.CSNpin,GPIO_PIN_SET)
-#define CE_0 	  HAL_GPIO_WritePin(hnrf24l01.CEport, hnrf24l01.CEpin,GPIO_PIN_RESET)
-#define CE_1  	HAL_GPIO_WritePin(hnrf24l01.CEport, hnrf24l01.CEpin,GPIO_PIN_SET)
-#define READ_IRQ			HAL_GPIO_ReadPin(hnrf24l01.IRQport,   hnrf24l01.IRQpin)
 
 
 
 
 
 
-//SPI和nrf24l01交互
-uint8_t nrf24l01_write_buf(uint8_t nrf24l01_reg,uint8_t *pbuf,uint8_t size);
-uint8_t nrf24l01_read_buf(uint8_t nrf24l01_reg,uint8_t *pbuf,uint8_t size);
 
-uint8_t nrf24l01_write_reg(uint8_t nrf24l01_reg,uint8_t value);
-uint8_t nrf24l01_read_reg(uint8_t nrf24l01_reg);
-void NRF24L01_Config(void);
+#define NRF_PIN_STATE(__HANDLE__,__PIN_MASK__,__STATE__ ) HAL_GPIO_WritePin((__HANDLE__)->port[__PIN_MASK__],(__HANDLE__)->pin[__PIN_MASK__],__STATE__)
+#define NRF_PIN_GET(__HANDLE__,__PIN_MASK__) HAL_GPIO_ReadPin((__HANDLE__)->port[__PIN_MASK__],(__HANDLE__)->pin[__PIN_MASK__])
+
+
+#define NRF_CE_0(__HANDLE__) NRF_PIN_STATE(__HANDLE__,NRF_PIN_CE,GPIO_PIN_RESET)
+#define NRF_ENTER_STANDBY(__HANDLE__)  NRF_CE_0(__HANDLE__)
+
+#define NRF_CE_1(__HANDLE__) NRF_PIN_STATE(__HANDLE__,NRF_PIN_CE,GPIO_PIN_SET)
+#define NRF_EXIT_STANDBY(__HANDLE__)   NRF_CE_1(__HANDLE__)
+
+#define NRF_CSN_0(__HANDLE__) NRF_PIN_STATE(__HANDLE__,NRF_PIN_CSN,GPIO_PIN_RESET)
+#define NRF_SPI_START_SIGNAL(__HANDLE__)  NRF_CSN_0(__HANDLE__)
+
+#define NRF_CSN_1(__HANDLE__) NRF_PIN_STATE(__HANDLE__,NRF_PIN_CSN,GPIO_PIN_SET)
+#define NRF_SPI_END_SIGNAL(__HANDLE__)   NRF_CSN_1(__HANDLE__)
+
+#define NRF_IRQ_READ(__HANDLE__)  NRF_PIN_GET(__HANDLE__,NRF_PIN_IRQ)
+
+ 
+
+
+
+
+/******************************
+ * declare func here
+ ******************************/
+
+
 void NRF24L01_Init(void);
-uint8_t NRF24L01_Check(void);
-void NRF24L01_RxMode(void);
-void NRF24L01_TxMode(void );
 
-uint8_t NRF24L01_Transmit(uint8_t *tbuf);
-uint8_t NRF24L01_Recieve(uint8_t *rbuf);
+HAL_StatusTypeDef NRF24L01_Check(NRF24L01_HandleTypeDef *hnrf);
+void NRF24L01_Get_Instance(NRF24L01_HandleTypeDef *hnrf);
+
+void NRF24L01_Switch2_Tx(NRF24L01_HandleTypeDef *hnrf);
+void NRF24L01_Switch2_Rx(NRF24L01_HandleTypeDef *hnrf);
+
+HAL_StatusTypeDef NRF24L01_Transmit(NRF24L01_HandleTypeDef *hnrf,uint8_t *tbuf,uint32_t timeout);
+HAL_StatusTypeDef NRF24L01_Recieve(NRF24L01_HandleTypeDef *hnrf,uint8_t *tbuf,uint32_t timeout);
 
 
-//------------------------------------------------------------------------------------
+/* --- irq func --- */
+HAL_StatusTypeDef NRF24L01_Recieve_IT(NRF24L01_HandleTypeDef *hnrf,uint8_t *tbuf);
+
+void NRF_IRQHandler(NRF24L01_HandleTypeDef *hnrf); //called by ext interrupt ISR  
+void NRF_RxCpltCallback(NRF24L01_HandleTypeDef *hnrf,uint8_t pipex);
 
 
-
+/******************************
+ * extern gobal varable 
+ ******************************/
 
 extern NRF24L01_HandleTypeDef hnrf24l01;
-
 #endif
