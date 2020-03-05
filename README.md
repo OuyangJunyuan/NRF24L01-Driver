@@ -6,6 +6,6 @@ NRF24L01-Driver,for STM32 use only.
 
 ---
 
-##MORE
+## MORE
 
 for more：[click here!](./note/ApplicationNote.pdf)
